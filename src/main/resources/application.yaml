@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: sftp
+
+  # 1. Database Connection Details go here
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres?currentSchema=lambda_schema}  # Replace with your DB URL
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}                               # Replace with your username
+    password: ${SPRING_DATASOURCE_PASSWORD:1234}                               # Replace with your password
+    driver-class-name: org.postgresql.Driver                 # (Optional but good practice)
+    hikari:
+      schema: lambda_schema
+
+  # 2. JPA & Hibernate Behavior settings go here
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: ${SHOW_SQL:false}     # Prints SQL commands in the console for easy debugging
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    default-schema: lambda_schema
+aws:
+  region: ${REGION:us-east-1}
+  bucket:
+    name: ${AWS_BUCKET_NAME:}
