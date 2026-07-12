@@ -4,57 +4,64 @@ An event-driven Spring Boot and AWS Lambda pipeline that processes CSV files upl
 
 ---
 
-## 🚀 Architectural & Setup Flow
+## 🛠️ Phase 1: Infrastructure Setup & Deployment Flow
 
-The diagram below details the architecture, broken down into the **Infrastructure Setup Phase** and the **Automated Runtime Ingestion Pipeline**:
+The diagram below illustrates the sequential order in which the various cloud components are created, configured, and linked:
 
 ```mermaid
 flowchart TD
     %% Styling Classes for Visual Clarity
-    classDef external fill:#FFEAEA,stroke:#FF5A5A,stroke-width:2px,color:#333;
     classDef aws fill:#EBF3FF,stroke:#4A90E2,stroke-width:2px,color:#333;
     classDef config fill:#FFF9E6,stroke:#F5A623,stroke-width:2px,color:#333;
     classDef database fill:#E8F8F5,stroke:#1ABC9C,stroke-width:2px,color:#333;
     classDef server fill:#F5F5F5,stroke:#7F8C8D,stroke-width:2px,color:#333;
 
-    %% Phase 1: Setup Flow
-    subgraph Phase1["🛠️ Phase 1: Infrastructure Setup & Deployment"]
-        direction TB
-        IAM["🔑 1. Create IAM Role<br>(S3 Read & SNS Publish)"]:::config
-        DB_EC2["🐳 2. Run PostgreSQL in Docker<br>(on EC2 Instance)"]:::database
-        SFTP_SRV["📡 3. Setup AWS Transfer Family SFTP<br>(with SSH Key Authentication)"]:::server
-        S3_BKT["📦 4. Create S3 Bucket<br>('client_data_files')"]:::aws
-        JAR_BUILD["☕ 5. Build Shaded JAR<br>& Upload to S3"]:::config
-        LAMBDA["⚡ 6. Deploy Lambda Function<br>(Fetch JAR from S3)"]:::aws
-        S3_TRIGGER["⚙️ 7. Set S3 Event Notification<br>(ObjectCreated -> Trigger Lambda)"]:::config
-        SNS_SETUP["✉️ 8. Setup SNS Topic & Subscriptions<br>(Email Notifications)"]:::config
+    IAM["🔑 1. Create IAM Role<br>(S3 Read & SNS Publish)"]:::config
+    DB_EC2["🐳 2. Run PostgreSQL in Docker<br>(on EC2 Instance)"]:::database
+    SFTP_SRV["📡 3. Setup AWS Transfer Family SFTP<br>(with SSH Key Authentication)"]:::server
+    S3_BKT["📦 4. Create S3 Bucket<br>('client_data_files')"]:::aws
+    JAR_BUILD["☕ 5. Build Shaded JAR<br>& Upload to S3"]:::config
+    LAMBDA["⚡ 6. Deploy Lambda Function<br>(Fetch JAR from S3)"]:::aws
+    S3_TRIGGER["⚙️ 7. Set S3 Event Notification<br>(ObjectCreated -> Trigger Lambda)"]:::config
+    SNS_SETUP["✉️ 8. Setup SNS Topic & Subscriptions<br>(Email Notifications)"]:::config
 
-        %% Connections for setup order
-        IAM --> LAMBDA
-        JAR_BUILD --> LAMBDA
-        S3_BKT --> S3_TRIGGER --> LAMBDA
-        S3_BKT -->|Set Home Dir| SFTP_SRV
-        SNS_SETUP --> LAMBDA
-    end
+    %% Setup connections indicating dependencies
+    IAM --> LAMBDA
+    JAR_BUILD --> LAMBDA
+    S3_BKT --> S3_TRIGGER --> LAMBDA
+    S3_BKT -->|Set Home Dir| SFTP_SRV
+    SNS_SETUP --> LAMBDA
+```
 
-    %% Phase 2: Runtime Flow
-    subgraph Phase2["🔄 Phase 2: Automated Runtime Execution Flow"]
-        direction LR
-        Client(["👤 SFTP Client"]):::external
-        SFTP_Server["📡 AWS SFTP Gateway"]:::server
-        S3_Bucket["📦 S3 Bucket<br>(client_data_files)"]:::aws
-        Lambda_Func["⚡ Lambda Function<br>(Spring Boot Context)"]:::aws
-        Postgres_DB["🐳 PostgreSQL DB<br>(Docker on EC2)"]:::database
-        SNS_Topic["✉️ Amazon SNS Topic"]:::aws
-        User_Email(["📧 User Email Inbox"]):::external
+---
 
-        Client -->|1. Uploads CSV| SFTP_Server
-        SFTP_Server -->|2. Writes Object| S3_Bucket
-        S3_Bucket -->|3. s3:ObjectCreated Trigger| Lambda_Func
-        Lambda_Func -->|4. Stream CSV & Save| Postgres_DB
-        Lambda_Func -->|5. Publish Execution Status| SNS_Topic
-        SNS_Topic -->|6. Send Status Email| User_Email
-    end
+## 🔄 Phase 2: Automated Runtime Execution Flow
+
+Once the setup is complete, the file ingestion pipeline runs automatically whenever a client initiates a file transfer:
+
+```mermaid
+flowchart LR
+    %% Styling Classes for Visual Clarity
+    classDef external fill:#FFEAEA,stroke:#FF5A5A,stroke-width:2px,color:#333;
+    classDef aws fill:#EBF3FF,stroke:#4A90E2,stroke-width:2px,color:#333;
+    classDef database fill:#E8F8F5,stroke:#1ABC9C,stroke-width:2px,color:#333;
+    classDef server fill:#F5F5F5,stroke:#7F8C8D,stroke-width:2px,color:#333;
+
+    Client(["👤 SFTP Client"]):::external
+    SFTP_Server["📡 AWS SFTP Gateway"]:::server
+    S3_Bucket["📦 S3 Bucket<br>(client_data_files)"]:::aws
+    Lambda_Func["⚡ Lambda Function<br>(Spring Boot Context)"]:::aws
+    Postgres_DB["🐳 PostgreSQL DB<br>(Docker on EC2)"]:::database
+    SNS_Topic["✉️ Amazon SNS Topic"]:::aws
+    User_Email(["📧 User Email Inbox"]):::external
+
+    %% Execution Steps
+    Client -->|1. Uploads CSV| SFTP_Server
+    SFTP_Server -->|2. Writes Object| S3_Bucket
+    S3_Bucket -->|3. s3:ObjectCreated Trigger| Lambda_Func
+    Lambda_Func -->|4. Stream CSV & Save| Postgres_DB
+    Lambda_Func -->|5. Publish Execution Status| SNS_Topic
+    SNS_Topic -->|6. Send Status Email| User_Email
 ```
 
 ---
