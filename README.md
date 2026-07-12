@@ -1,6 +1,6 @@
 # SFTP to Database CSV Processing Pipeline
 
-An event-driven Spring Boot and AWS Lambda pipeline that processes CSV files uploaded via SFTP, parses them, persists records into a PostgreSQL database, and publishes status notifications to Amazon SNS.
+An event-driven Spring Boot and AWS Lambda pipeline that processes CSV files uploaded via SFTP, parses them, persists records into a PostgreSQL database, and publishes status notifications to Amazon SNS thats send emails.
 
 ---
 
@@ -16,21 +16,41 @@ flowchart TD
     classDef database fill:#E8F8F5,stroke:#1ABC9C,stroke-width:2px,color:#333;
     classDef server fill:#F5F5F5,stroke:#7F8C8D,stroke-width:2px,color:#333;
 
-    IAM["🔑 1. Create IAM Role<br>(S3 Read & SNS Publish)"]:::config
-    DB_EC2["🐳 2. Run PostgreSQL in Docker<br>(on EC2 Instance)"]:::database
-    SFTP_SRV["📡 3. Setup AWS Transfer Family SFTP<br>(with SSH Key Authentication)"]:::server
-    S3_BKT["📦 4. Create S3 Bucket<br>('client_data_files')"]:::aws
-    JAR_BUILD["☕ 5. Build Shaded JAR<br>& Upload to S3"]:::config
-    LAMBDA["⚡ 6. Deploy Lambda Function<br>(Fetch JAR from S3)"]:::aws
-    S3_TRIGGER["⚙️ 7. Set S3 Event Notification<br>(ObjectCreated -> Trigger Lambda)"]:::config
-    SNS_SETUP["✉️ 8. Setup SNS Topic & Subscriptions<br>(Email Notifications)"]:::config
+    subgraph Security["🔐 1. Access & Security Setup"]
+        direction TB
+        IAM["🔑 Create IAM Role<br>(S3 Read & SNS Publish)"]:::config
+        SSH["🗝️ Configure SSH Keys<br>(For SFTP Access)"]:::config
+    end
 
-    %% Setup connections indicating dependencies
+    subgraph Storage["🗄️ 2. Storage & Database Setup"]
+        direction TB
+        S3_BKT["📦 Create S3 Bucket<br>('client_data_files')"]:::aws
+        DB_EC2["🐳 Run PostgreSQL in Docker<br>(on EC2 Instance)"]:::database
+    end
+
+    subgraph Deploy["⚡ 3. Application Deployment"]
+        direction TB
+        JAR_BUILD["☕ Build Shaded JAR<br>& Upload to S3"]:::config
+        LAMBDA["⚡ Deploy Lambda Function<br>(Fetch JAR from S3)"]:::aws
+        SNS_SETUP["✉️ Setup SNS Topic<br>& Email Subscription"]:::config
+    end
+
+    subgraph Wiring["⚙️ 4. Integration & Wiring"]
+        direction TB
+        SFTP_SRV["📡 Setup AWS Transfer SFTP<br>(Mount S3 Home Dir)"]:::server
+        S3_TRIGGER["⚙️ Configure S3 Trigger<br>(ObjectCreated -> Lambda)"]:::config
+    end
+
+    %% Dependency Connections
     IAM --> LAMBDA
     JAR_BUILD --> LAMBDA
-    S3_BKT --> S3_TRIGGER --> LAMBDA
-    S3_BKT -->|Set Home Dir| SFTP_SRV
     SNS_SETUP --> LAMBDA
+    
+    S3_BKT --> S3_TRIGGER
+    LAMBDA --> S3_TRIGGER
+    
+    S3_BKT --> SFTP_SRV
+    SSH --> SFTP_SRV
 ```
 
 ---
