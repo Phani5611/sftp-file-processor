@@ -1,6 +1,6 @@
 # SFTP to Database CSV Processing Pipeline
 
-An event-driven Spring Boot and AWS Lambda pipeline that processes CSV files uploaded via SFTP, parses them, persists records into a PostgreSQL database, and publishes status notifications to Amazon SNS thats send emails.
+An event-driven Spring Boot and AWS Lambda pipeline that processes CSV files uploaded via SFTP, parses them, persists records into a PostgreSQL database, and publishes status notifications to Amazon SNS that send emails.
 
 ---
 
