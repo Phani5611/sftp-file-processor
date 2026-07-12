@@ -1,47 +1,60 @@
 # SFTP to Database CSV Processing Pipeline
 
-An event-driven Spring Boot and AWS Lambda pipeline that processes CSV files uploaded via SFTP, parses them, persists records into a PostgreSQL database, and publishes email  notifications to Amazon SNS about the file processing status.
+An event-driven Spring Boot and AWS Lambda pipeline that processes CSV files uploaded via SFTP, parses them, persists records into a PostgreSQL database, and publishes status notifications to Amazon SNS.
 
 ---
 
 ## 🚀 Architectural & Setup Flow
 
-The diagram below outlines the infrastructure setup sequence followed by the automated runtime execution flow:
+The diagram below details the architecture, broken down into the **Infrastructure Setup Phase** and the **Automated Runtime Ingestion Pipeline**:
 
 ```mermaid
 flowchart TD
-    %% Setup Phases
-    subgraph Infrastructure Setup Phase
+    %% Styling Classes for Visual Clarity
+    classDef external fill:#FFEAEA,stroke:#FF5A5A,stroke-width:2px,color:#333;
+    classDef aws fill:#EBF3FF,stroke:#4A90E2,stroke-width:2px,color:#333;
+    classDef config fill:#FFF9E6,stroke:#F5A623,stroke-width:2px,color:#333;
+    classDef database fill:#E8F8F5,stroke:#1ABC9C,stroke-width:2px,color:#333;
+    classDef server fill:#F5F5F5,stroke:#7F8C8D,stroke-width:2px,color:#333;
+
+    %% Phase 1: Setup Flow
+    subgraph Phase1["🛠️ Phase 1: Infrastructure Setup & Deployment"]
         direction TB
-        A[1. Create IAM Role<br>with S3 & SNS Policies] --> B[2. Create Lambda Function]
-        C[3. Create S3 Bucket<br>'client_data_files'] --> D[4. Configure S3 Trigger on Lambda]
-        E[5. Build Shaded JAR<br>& Upload via S3 to Lambda] --> B
-        F[6. Run PostgreSQL in Docker<br>on EC2 Instance]
-        G[7. Setup AWS Transfer Family SFTP<br>with SSH Key Pair] --> H[8. Mount S3 Bucket as Home Directory]
+        IAM["🔑 1. Create IAM Role<br>(S3 Read & SNS Publish)"]:::config
+        DB_EC2["🐳 2. Run PostgreSQL in Docker<br>(on EC2 Instance)"]:::database
+        SFTP_SRV["📡 3. Setup AWS Transfer Family SFTP<br>(with SSH Key Authentication)"]:::server
+        S3_BKT["📦 4. Create S3 Bucket<br>('client_data_files')"]:::aws
+        JAR_BUILD["☕ 5. Build Shaded JAR<br>& Upload to S3"]:::config
+        LAMBDA["⚡ 6. Deploy Lambda Function<br>(Fetch JAR from S3)"]:::aws
+        S3_TRIGGER["⚙️ 7. Set S3 Event Notification<br>(ObjectCreated -> Trigger Lambda)"]:::config
+        SNS_SETUP["✉️ 8. Setup SNS Topic & Subscriptions<br>(Email Notifications)"]:::config
+
+        %% Connections for setup order
+        IAM --> LAMBDA
+        JAR_BUILD --> LAMBDA
+        S3_BKT --> S3_TRIGGER --> LAMBDA
+        S3_BKT -->|Set Home Dir| SFTP_SRV
+        SNS_SETUP --> LAMBDA
     end
 
-    %% Execution Phases
-    subgraph Runtime Ingestion Pipeline
+    %% Phase 2: Runtime Flow
+    subgraph Phase2["🔄 Phase 2: Automated Runtime Execution Flow"]
         direction LR
-        Client([SFTP Client]) -->|1. SFTP Upload CSV| SFTP[AWS Transfer Family]
-        SFTP -->|2. Write Object| S3[(S3 Bucket: client_data_files)]
-        S3 -->|3. s3:ObjectCreated Event| LambdaFunc[AWS Lambda Function]
-        
-        subgraph Spring Service Layer
-            LambdaFunc -->|4. Stream File| S3Util[S3util]
-            LambdaFunc -->|5. Parse & Save| Processor[CsvFileProcessor]
-            Processor -->|6. Persist| DB[(PostgreSQL Container on EC2)]
-        end
-        
-        LambdaFunc -->|7. Publish Status| SNS[SNS Topic]
-        SNS -->|8. Send Custom Email| Email([User Inbox])
-    end
+        Client(["👤 SFTP Client"]):::external
+        SFTP_Server["📡 AWS SFTP Gateway"]:::server
+        S3_Bucket["📦 S3 Bucket<br>(client_data_files)"]:::aws
+        Lambda_Func["⚡ Lambda Function<br>(Spring Boot Context)"]:::aws
+        Postgres_DB["🐳 PostgreSQL DB<br>(Docker on EC2)"]:::database
+        SNS_Topic["✉️ Amazon SNS Topic"]:::aws
+        User_Email(["📧 User Email Inbox"]):::external
 
-    %% Setup connections
-    C -.-> H
-    H -.-> SFTP
-    F -.-> DB
-    B -.-> LambdaFunc
+        Client -->|1. Uploads CSV| SFTP_Server
+        SFTP_Server -->|2. Writes Object| S3_Bucket
+        S3_Bucket -->|3. s3:ObjectCreated Trigger| Lambda_Func
+        Lambda_Func -->|4. Stream CSV & Save| Postgres_DB
+        Lambda_Func -->|5. Publish Execution Status| SNS_Topic
+        SNS_Topic -->|6. Send Status Email| User_Email
+    end
 ```
 
 ---
@@ -65,8 +78,8 @@ This pipeline is deployed using managed AWS services and an EC2-hosted database:
 * Create an AWS Lambda function with the **Java 17** runtime.
 * Attach the previously created IAM Role to this function.
 * Adjust Lambda settings:
-  * **Memory:** Allocate at least 512 MB (to optimize Spring Boot cold start speeds).
-  * **Timeout:** Set to 30 seconds -1 minute to allow adequate time for Spring Boot context bootstrapping and file processing.
+  * **Memory:** Allocate at least 1024 MB (to optimize Spring Boot cold start speeds).
+  * **Timeout:** Set to 1–2 minutes to allow adequate time for Spring Boot context bootstrapping and file processing.
 
 ### 4. Build and Upload Shaded JAR
 * Build the shaded execution JAR locally:
