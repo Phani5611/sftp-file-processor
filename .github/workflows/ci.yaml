@@ -1,4 +1,4 @@
-name: Buid & Test
+name: Build & Test
 
 on:
   push:
@@ -9,22 +9,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-  steps:
-    - uses: actions/checkout@v6
-    - name: Install Maven & JRE
-    - uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: maven
-    - name: Verify Maven & JRE
-      run: |
-        java --version
-        mvn --version
-          run: mvn clean install
-    - name: Download Maven Dependencies
-      run: mvn dependency:go-offline
-    - name: Start Compiling the Project
-      run: mvn compile -DskipTests
-      
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Maven & JRE
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      - name: Verify Maven & JRE
+        run: |
+          java --version
+          mvn --version
+      - name: Download Maven Dependencies
+        run: mvn dependency:go-offline
+      - name: Start Compiling the Project
+        run: mvn compile -DskipTests
+
 
