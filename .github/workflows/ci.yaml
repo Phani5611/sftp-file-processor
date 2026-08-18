@@ -26,4 +26,5 @@ jobs:
       run: mvn dependency:go-offline
     - name: Start Compiling the Project
       run: mvn compile -DskipTests
+      
 
