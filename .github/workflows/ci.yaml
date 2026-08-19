@@ -4,28 +4,62 @@ on:
   push:
     branches:
       - master
-  #workflow_dispatch:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+env:
+  OIDC_ROLE: ${{secrets.AWS_ROLE_ARN }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
+    environment: test
 
     steps:
       - name: checkout 
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
       - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-      - name: Verify Maven & JRE
-        run: |
-          java --version
-          mvn --version
-      - name: Download Maven Dependencies
-        run: mvn dependency:go-offline
+      # - name: Verify Maven & JRE
+      #   run: |
+      #     java --version
+      #     mvn --version
+      # - name: Download Maven Dependencies
+      #   run: mvn dependency:go-offline
+
       - name: Start Compiling the Project
         run: mvn compile -DskipTests
+
+      - name: Creating Package
+        run: mvn clean package -DskipTests
+
+      - name: Configure AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.OIDC_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Log into AWS ECR
+        id: login-ecr #Q1 why to write this? what if I dont write?
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build, Tage and Push Image
+        env:  
+          ECR_REGISTRY: ${{steps.login-ecr.outputs.registry}}
+        run: | # why to use pipe symbol?
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        
+
+      
 
 
