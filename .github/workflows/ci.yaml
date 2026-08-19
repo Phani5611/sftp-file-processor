@@ -3,8 +3,8 @@ name: Build & Test
 on:
   push:
     branches:
-      - 'master'
-  workflow_dsipatch:
+      - master
+  workflow_dispatch:
 
 jobs:
   build:
